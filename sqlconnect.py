@@ -19,8 +19,10 @@ def create_tables():
         "price" REAL,
         "quantity" INTEGER,
         "type" TEXT,
-        "sold" INTEGER DEFAULT 0 ,
-        "efficiency" REAL DEFAULT 0
+        "sold" INTEGER DEFAULT 0,
+        "efficiency" REAL DEFAULT 0,
+        "rating" REAL DEFAULT 0,  -- Add rating column with default value 0
+        "num_people_rated" INTEGER DEFAULT 0 -- Add num_people_rated column with default value 0
     );
     """)
     cursor.execute("""
@@ -36,39 +38,63 @@ def create_tables():
 
 
 # Functionality for adding a book
-def add_book(title, author, price, purchase_date, quantity,Booktype):
+def add_book(title, author, price, purchase_date, quantity, book_type, rating=0, num_people_rated=0):
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO Book (name, author, date, price, quantity, type) VALUES (?, ?, ?, ?, ?, ?)",
-                   (title, author, purchase_date, price, quantity,Booktype))
+    cursor.execute("""
+        INSERT INTO Book (name, author, date, price, quantity, type, rating, num_people_rated)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (title, author, purchase_date, price, quantity, book_type, rating, num_people_rated))
     conn.commit()
     conn.close()
     # messagebox.showinfo("Success", "Book added successfully!")
 
 
 # Functionality for selling a book
-def sell_book(book_id, quantity):
+def sell_book(book_id, quantity, user_rating=None):
     date = datetime.today().date()
     conn = connect_db()
     cursor = conn.cursor()
     current_quantity = get_book_quantity(book_id)
 
+    # Fetch current rating and the number of people who rated the book
+    cursor.execute("SELECT rating, num_people_rated FROM Book WHERE id = ?", (book_id,))
+    result = cursor.fetchone()
+    if result:
+        current_rating, num_people_rated = result
+    else:
+        messagebox.showinfo("Error", "Book not found.")
+        conn.close()
+        return
+
     # Check if there is enough stock to sell
     if current_quantity is not None and current_quantity >= quantity:
         new_quantity = current_quantity - quantity
 
+        # Insert the sale record
         cursor.execute("INSERT INTO Sell (book_id, quantity, date) VALUES (?, ?, ?)", (book_id, quantity, date))
-        cursor.execute("UPDATE Book SET quantity = ?,sold =sold + ?  WHERE id = ?", (new_quantity,quantity,book_id))
+
+        # Update the book quantity and sold count
+        cursor.execute(
+            "UPDATE Book SET quantity = ?, sold = sold + ? WHERE id = ?",
+            (new_quantity, quantity, book_id),
+        )
+
+        # Update rating if the user provides one
+        if user_rating is not None:
+            new_num_people_rated = num_people_rated + 1
+            new_rating = ((current_rating * num_people_rated) + user_rating) / new_num_people_rated
+            cursor.execute(
+                "UPDATE Book SET rating = ?, num_people_rated = ? WHERE id = ?",
+                (new_rating, new_num_people_rated, book_id),
+            )
+
         conn.commit()
-        # cursor.execute("SELECT efficiency,date FROM Book")
-        # books = cursor.fetchall()
-        # effec = books[0]/(date.day-books[1].days)
-        # cursor.execute("UPDATE Book SET efficiency = ?  WHERE id = ?", (effec, book_id))
-        # conn.commit()
         conn.close()
         # messagebox.showinfo("Success", "Book sale recorded successfully!")
     else:
-        messagebox.showinfo("Input Error","Not enough stock available.")
+        conn.close()
+        messagebox.showinfo("Input Error", "Not enough stock available.")
 
 def get_book_quantity(book_id):
     conn = connect_db()
@@ -129,7 +155,11 @@ def recommend_book():
 def fetch_books():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, author, quantity, date, price, type, sold,efficiency FROM Book")
+    cursor.execute("""
+    SELECT id, name, author, quantity, date, price, type, sold, efficiency, rating, num_people_rated 
+    FROM Book
+    """)
     books = cursor.fetchall()
     conn.close()
     return books
+

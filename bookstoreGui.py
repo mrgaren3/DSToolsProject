@@ -2,6 +2,8 @@ from sqlconnect import *
 import tkinter as tk
 from tkcalendar import DateEntry  # Import the DateEntry widget
 from tkinter import ttk
+from tkinter import simpledialog
+
 
 class BookStoreApp:
     def __init__(self, root):
@@ -85,7 +87,7 @@ class BookStoreApp:
         self.recommend_btn.pack(pady=10)
 
     def setup_show_data_tab(self):
-    # Search bar
+        # Search bar
         search_frame = tk.Frame(self.show_data_tab)
         search_frame.pack(fill="x", pady=5)
 
@@ -93,7 +95,10 @@ class BookStoreApp:
 
         self.search_field = ttk.Combobox(
             search_frame,
-            values=["ID", "Title", "Author", "Quantity", "Date", "Price", "Type", "Sold", "Efficiency"],
+            values=[
+                "ID", "Title", "Author", "Quantity", "Date", "Price", "Type", "Sold",
+                "Efficiency", "Rating", "Num People Rated"
+            ],
             state="readonly"
         )
         self.search_field.set("Title")  # Default field to search by
@@ -111,9 +116,14 @@ class BookStoreApp:
         self.clear_search_button.pack(side="left", padx=5)
 
         # Treeview
-        self.tree = ttk.Treeview(self.show_data_tab, 
-                                columns=("ID", "Title", "Author", "Quantity", "Date", "Price", "Type", "Sold", "Efficiency"), 
-                                show="headings")
+        self.tree = ttk.Treeview(
+            self.show_data_tab,
+            columns=(
+                "ID", "Title", "Author", "Quantity", "Date", "Price", "Type",
+                "Sold", "Efficiency", "Rating", "Num People Rated"
+            ),
+            show="headings"
+        )
         self.tree.heading("ID", text="ID", command=lambda: self.sort_column("ID", False))
         self.tree.heading("Title", text="Title", command=lambda: self.sort_column("Title", False))
         self.tree.heading("Author", text="Author", command=lambda: self.sort_column("Author", False))
@@ -123,6 +133,9 @@ class BookStoreApp:
         self.tree.heading("Type", text="Type", command=lambda: self.sort_column("Type", False))
         self.tree.heading("Sold", text="Sold", command=lambda: self.sort_column("Sold", False))
         self.tree.heading("Efficiency", text="Efficiency", command=lambda: self.sort_column("Efficiency", False))
+        self.tree.heading("Rating", text="Rating", command=lambda: self.sort_column("Rating", False))
+        self.tree.heading("Num People Rated", text="Num People Rated",
+                          command=lambda: self.sort_column("Num People Rated", False))
 
         self.tree.pack(fill="both", expand=True)
 
@@ -148,14 +161,32 @@ class BookStoreApp:
             print(title,author,price,quantity,purchase_date)
             messagebox.showwarning("Input Error", "Please fill in all fields.")
 
+
     def on_sell_book(self):
         book_id = self.book_id_entry.get()
         quantity2 = self.quantity_entry2.get()
 
         if book_id and quantity2:
-            sell_book(int(book_id), int(quantity2))
-            self.book_id_entry.delete(0, tk.END)
-            self.quantity_entry.delete(0, tk.END)
+            try:
+                # Ask the user for an optional rating
+                rating = simpledialog.askstring(
+                    "Rate Book",
+                    "Optional: Rate this book (1-5) or leave empty to skip:",
+                    parent=self.root,
+                )
+
+                if rating:
+                    rating = float(rating)
+                    if rating < 1 or rating > 5:
+                        raise ValueError("Rating must be between 1 and 5.")
+
+                # Call sell_book with the optional rating
+                sell_book(int(book_id), int(quantity2), rating if rating else None)
+                messagebox.showinfo("Success", "Book sold successfully!")
+                self.book_id_entry.delete(0, tk.END)
+                self.quantity_entry2.delete(0, tk.END)
+            except ValueError as e:
+                messagebox.showerror("Input Error", str(e))
         else:
             messagebox.showwarning("Input Error", "Please fill in all fields.")
 
