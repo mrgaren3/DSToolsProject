@@ -1,13 +1,13 @@
 import pandas as pd
 import numpy as np
-from sqlconnect import *  # Ensure this contains the `add_book` and `sell_book` methods
+from Data.sqlconnect import *  # Ensure this contains the `add_book` and `sell_book` methods
 
 # Read the CSV file
 file_path = 'Books_df.csv'  # Replace with your CSV file path
 data = pd.read_csv(file_path)
 
 # Clean and extract the required columns
-data['Price'] = data['Price'].replace('[₹,]', '', regex=True).astype(float)  # Clean price column
+data['Price'] = data['Price'].replace('[₹,]', '', regex=True).astype(float)*0.012  # Clean price column
 data['No. of People rated'] = data['No. of People rated'].fillna(0).astype(int)  # Handle missing values for ratings
 data['Rating'] = data['Rating'].fillna(0).astype(float)  # Handle missing values for ratings
 
