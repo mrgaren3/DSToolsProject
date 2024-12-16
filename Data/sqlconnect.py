@@ -1,7 +1,6 @@
 import sqlite3
 from tkinter import messagebox
 from datetime import datetime
-import matplotlib.pyplot as plt
 
 
 def connect_db():
@@ -104,52 +103,6 @@ def get_book_quantity(book_id):
     conn.close()
     return result[0] if result else None
 
-# Functionality for book analysis
-def analyze_books():
-    conn = connect_db()
-    cursor = conn.cursor()
-    cursor.execute("""
-    SELECT Book.name, SUM(Sell.quantity) 
-    FROM Sell
-    JOIN Book ON Sell.book_id = Book.id
-    GROUP BY Sell.book_id
-    ORDER BY SUM(Sell.quantity) DESC
-    """)
-    books = cursor.fetchall()
-    conn.close()
-
-    titles, quantities = zip(*books) if books else ([], [])
-
-    # Plotting the sales data
-    plt.figure(figsize=(10, 6))
-    plt.bar(titles, quantities, color='blue')
-    plt.xlabel('Book Title')
-    plt.ylabel('Total Quantity Sold')
-    plt.title('Book Sales Analysis')
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    plt.show()
-
-# Function to recommend a book (simple logic: recommend the one with highest sales)
-def recommend_book():
-    conn = connect_db()
-    cursor = conn.cursor()
-    cursor.execute("""
-    SELECT Book.name, SUM(Sell.quantity) 
-    FROM Sell
-    JOIN Book ON Sell.book_id = Book.id
-    GROUP BY Sell.book_id
-    ORDER BY SUM(Sell.quantity) DESC
-    LIMIT 1
-    """)
-    recommendation = cursor.fetchone()
-    conn.close()
-
-    if recommendation:
-        book_title = recommendation[0]
-        messagebox.showinfo("Book Recommendation", f"We recommend the book: {book_title}")
-    else:
-        messagebox.showinfo("No Data", "No sales data available for recommendations.")
 
 # Function to fetch and display book data in a table
 def fetch_books():
