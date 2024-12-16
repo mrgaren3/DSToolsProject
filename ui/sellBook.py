@@ -1,28 +1,38 @@
-import tkinter as tk
-from tkinter import messagebox, simpledialog
-from Data.sqlconnect import sell_book
+import ttkbootstrap as tk
+from tkinter import messagebox, simpledialog, Listbox
+from Data.sqlconnect import sell_book, get_book_title  # Add a function to fetch book title
+from functions import content_based_system
 
 
 class SellBook:
     def __init__(self, parent):
         self.frame = tk.Frame(parent)
 
-        tk.Label(self.frame, text="Book ID",
-                 font=("Times New Roman", 14, "bold")).grid(row=0, column=0, padx=15, pady=10)
-        tk.Label(self.frame, text="Quantity",
-                 font=("Times New Roman", 14, "bold")).grid(row=1, column=0, padx=15, pady=10)
+        # Using pack for all widgets within this frame
+        self.frame.pack(padx=50, pady=50, fill="both", expand=True)
+
+        # Book ID label and entry
+        self.book_id_label = tk.Label(self.frame, text="Book ID", font=("Times New Roman", 14, "bold"))
+        self.book_id_label.pack(padx=15, pady=10)
 
         self.book_id_entry = tk.Entry(self.frame)
-        self.book_id_entry.grid(row=0, column=1, padx=15, pady=10)
+        self.book_id_entry.pack(padx=15, pady=10)
+
+        # Quantity label and entry
+        self.quantity_label = tk.Label(self.frame, text="Quantity", font=("Times New Roman", 14, "bold"))
+        self.quantity_label.pack(padx=15, pady=10)
 
         self.quantity_entry2 = tk.Entry(self.frame)
-        self.quantity_entry2.grid(row=1, column=1, padx=15, pady=10)
+        self.quantity_entry2.pack(padx=15, pady=10)
 
-        self.sell_book_btn = tk.Button(self.frame, text="Sell Book", command=self.on_sell_book,
-                                       font=("Times New Roman", 13, "bold"),
-                                       activebackground="blue", activeforeground="white",
-                                       highlightthickness=0)
-        self.sell_book_btn.grid(row=2, columnspan=2, pady=10)
+        # Sell book button
+        self.sell_book_btn = tk.Button(self.frame, text="Sell Book", command=self.on_sell_book, bootstyle="success")
+        self.sell_book_btn.pack(pady=10)
+
+        # Recommendations button
+        self.recommend_btn = tk.Button(self.frame, text="Get Recommendations", command=self.show_recommendations,
+                                       bootstyle="success")
+        self.recommend_btn.pack(pady=10)
 
     def on_sell_book(self):
         book_id = self.book_id_entry.get()
@@ -58,3 +68,41 @@ class SellBook:
 
     def get_frame(self):
         return self.frame
+
+    def show_recommendations(self):
+        book_id = self.book_id_entry.get()
+
+        if not book_id:
+            messagebox.showwarning("Input Error", "Please enter a Book ID to get recommendations.")
+            return
+
+        try:
+            # Fetch the book title using the book ID
+            book_title = get_book_title(int(book_id))
+
+            if not book_title:
+                messagebox.showerror("Error", "No book found with the given ID.")
+                return
+
+            # Call the content-based system
+            recommendations = content_based_system(book_title)
+
+            # Create a new window to display recommendations
+            rec_window = tk.Toplevel(self.frame)
+            rec_window.title("Book Recommendations")
+
+            # Display the chosen book title
+            tk.Label(rec_window, text=f"Recommendations for: '{book_title}'", font=("Arial", 14, "bold")).pack(pady=10)
+
+            # Add a listbox to display recommended books
+            listbox = Listbox(rec_window, width=150, height=10)
+            listbox.pack(pady=10)
+
+            for book, score in recommendations:
+                listbox.insert(tk.END, f"{book} (Score: {score:.4f})")
+
+            # Add a close button
+            tk.Button(rec_window, text="Close", command=rec_window.destroy).pack(pady=10)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")

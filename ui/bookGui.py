@@ -19,7 +19,7 @@ class BookGui:
                   background=[('selected', '#2980b9')],
                   foreground=[('selected', 'black')])
 
-        self.tab_control = ttk.Notebook(root)
+        self.tab_control = ttk.Notebook(root,bootstyle="info")
 
         self.add_book_tab = AddBook(self.tab_control)
         self.sell_book_tab = SellBook(self.tab_control)
