@@ -58,7 +58,6 @@ class SellBook:
 
                 # Call sell_book with the optional rating
                 sell_book(int(book_id), int(quantity2), rating if rating else None)
-                messagebox.showinfo("Success", "Book sold successfully!")
                 self.book_id_entry.delete(0, tk.END)
                 self.quantity_entry2.delete(0, tk.END)
             except ValueError as e:
