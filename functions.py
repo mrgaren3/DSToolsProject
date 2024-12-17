@@ -1,12 +1,13 @@
 import seaborn as sns
 import pandas as pd
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from Data.sqlconnect import *
 import tkinter as tk
 import matplotlib.pyplot as plt
 from sqlalchemy import *
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import difflib
+import ttkbootstrap as ttk
 
 def load_data():
     try:
@@ -71,7 +72,118 @@ def show_price_distribution():
     plt.show()
 
 def rfmModel():
-    pass
+    engine = create_engine('sqlite:///Data/bookstore.db')
+    connection = engine.connect()
+    df = pd.read_sql_table('Book', connection)
+    data = pd.read_sql_table('Sell', connection)
+    data["date"] = pd.to_datetime(data["date"])
+    df["date"] = pd.to_datetime(df["date"])
+    rfm_data = data.merge(df, left_on="book_id", right_on="id")
+    current_date = pd.Timestamp.today()
+    rfm_summary = (
+        rfm_data.groupby("book_id")
+        .agg(
+            Recency=("date_x", lambda x: (current_date - x.max()).days),  # Recency calculation
+            Frequency=("book_id", "count"),  # Frequency: Total sold per book
+            Monetary=("sold", lambda x: (x * rfm_data.loc[x.index, "Price"]).sum())  # Monetary value
+        )
+        .reset_index()
+    )
+
+    # Merge 'title' from the 'df' DataFrame into rfm_summary based on 'book_id'
+    rfm_summary = rfm_summary.merge(df[['id', 'Title']], left_on='book_id', right_on='id', how='left')
+
+    # Debugging helper function to safely apply qcut
+    def safe_qcut(series, q, labels):
+        try:
+            return pd.qcut(series, q=q, labels=labels, duplicates="drop")
+        except ValueError:
+            # Fallback: Assign the lowest rank if quantiles cannot be created
+            return pd.Series([labels[-1]] * len(series), index=series.index)
+
+    # Apply qcut safely for Recency, Frequency, and Monetary
+    rfm_summary["R_rank"] = safe_qcut(rfm_summary["Recency"], q=5, labels=[4, 3, 2, 1])
+    rfm_summary["F_rank"] = safe_qcut(rfm_summary["Frequency"], q=5, labels=[1, 2, 3, 4])
+    rfm_summary["M_rank"] = safe_qcut(rfm_summary["Monetary"], q=5, labels=[1, 2, 3, 4])
+
+    # Combine RFM scores into a single column
+    rfm_summary["RFM_Score"] = (
+            rfm_summary["R_rank"].astype(str)
+            + rfm_summary["F_rank"].astype(str)
+            + rfm_summary["M_rank"].astype(str)
+    )
+
+    # Assuming 'title' column exists in top_books for book titles
+    top_books = rfm_summary.sort_values(by="Monetary", ascending=False).head(10)
+
+    # Create a GUI window to display top 10 books and graph
+    def show_top_books():
+        top_window = tk.Toplevel()
+        top_window.title("Top 10 Books by Revenue")
+        top_window.geometry("800x600")
+
+        # Frame for Treeview
+        tree_frame = tk.Frame(top_window)
+        tree_frame.pack(side="top", fill="both", expand=True, padx=10, pady=10)
+
+        # Create a Treeview widget to display the results
+        columns = ("Title", "Frequency", "Revenue")
+        tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
+        tree.pack(fill="both", expand=True)
+
+        # Define column headings
+        tree.heading("Title", text="Book Title")
+        tree.heading("Frequency", text="Frequency")
+        tree.heading("Revenue", text="Revenue ($)")
+
+        # Define column widths
+        tree.column("Title", width=250)
+        tree.column("Frequency", width=100, anchor="center")
+        tree.column("Revenue", width=100, anchor="center")
+
+        # Add rows to the Treeview
+        for _, row in top_books.iterrows():
+            tree.insert("", "end", values=(row["Title"], row["Frequency"], f"${row['Monetary']:.2f}"))
+
+        # Frame for the plot
+        plot_frame = tk.Frame(top_window)
+        plot_frame.pack(side="bottom", fill="both", expand=True)
+
+        # Create the plot
+        titles = top_books["Title"]
+        sold = top_books["Frequency"]
+        revenue = top_books["Monetary"]
+
+        # Truncate book titles to the first 10 characters
+        short_titles = [title[:25] for title in titles]
+
+        # Plot revenue bar chart
+        fig, ax = plt.subplots(figsize=(8, 4))
+        x = range(len(short_titles))
+        ax.bar([i + 0.4 for i in x], revenue, color="orange", label="Revenue", width=0.4, align="center")
+
+        # Set x-axis labels to truncated book titles and rotate by 45 degrees
+        ax.set_xticks([i + 0.2 for i in x])
+        ax.set_xticklabels(short_titles, rotation=45)
+        ax.set_xlabel("Book Title")
+        ax.set_ylabel("Value")
+        ax.set_title("Top 10 Books Revenue")
+        ax.legend()
+        fig.tight_layout()
+
+        # Display the plot in the GUI
+        canvas = FigureCanvasTkAgg(fig, plot_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # Add a close button
+        close_button = tk.Button(top_window, text="Close", command=top_window.destroy)
+        close_button.pack(pady=10)
+
+    show_top_books()
+
+def wrap_text(text, max_length=15):
+    return '\n'.join([text[i:i + max_length] for i in range(0, len(text), max_length)])
 
 def on_popularity_book(parent_frame):
     df = load_data()
@@ -127,11 +239,10 @@ def content_based_system(title):
 
     return recommendations
 
-import ttkbootstrap as bk
 
 def show_custom_error_dialog(parent, message):
     # Create a custom error dialog with a Toplevel window
-    dialog = bk.Toplevel(parent)
+    dialog = ttk.Toplevel(parent)
     dialog.title("Input Error")
     dialog.geometry("400x200")  # Adjust the size of the dialog
 
@@ -139,9 +250,9 @@ def show_custom_error_dialog(parent, message):
     dialog.configure(bg="#f8d7da")
 
     # Label for the error message, wrap long text within the window
-    label = bk.Label(dialog, text=message, font=("Arial", 12), wraplength=380)
+    label = ttk.Label(dialog, text=message, font=("Arial", 12), wraplength=380)
     label.pack(padx=10, pady=20)
 
     # Button to close the dialog
-    button = bk.Button(dialog, text="Close", bootstyle="danger", command=dialog.destroy)
+    button = ttk.Button(dialog, text="Close", bootstyle="danger", command=dialog.destroy)
     button.pack(pady=10)
