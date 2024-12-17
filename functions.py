@@ -118,6 +118,7 @@ def rfmModel():
 
     # Create a GUI window to display top 10 books and graph
     def show_top_books():
+        # Create a new top-level window
         top_window = tk.Toplevel()
         top_window.title("Top 10 Books by Revenue")
         top_window.geometry("800x600")
@@ -145,47 +146,37 @@ def rfmModel():
         for _, row in top_books.iterrows():
             tree.insert("", "end", values=(row["Title"], row["Frequency"], f"${row['Monetary']:.2f}"))
 
-        # Frame for the plot
-        plot_frame = tk.Frame(top_window)
-        plot_frame.pack(side="bottom", fill="both", expand=True)
-
         # Create the plot
         titles = top_books["Title"]
-        sold = top_books["Frequency"]
         revenue = top_books["Monetary"]
 
-        # Truncate book titles to the first 10 characters
+        # Truncate book titles to the first 25 characters
         short_titles = [title[:25] for title in titles]
 
-        # Plot revenue bar chart
-        fig, ax = plt.subplots(figsize=(8, 4))
-        x = range(len(short_titles))
-        ax.bar([i + 0.4 for i in x], revenue, color="orange", label="Revenue", width=0.4, align="center")
+        # Plot revenue bar chart using plt
+        plt.figure(figsize=(8, 4))
+        plt.bar(short_titles, revenue, color="orange", label="Revenue")
 
-        # Set x-axis labels to truncated book titles and rotate by 45 degrees
-        ax.set_xticks([i + 0.2 for i in x])
-        ax.set_xticklabels(short_titles, rotation=45)
-        ax.set_xlabel("Book Title")
-        ax.set_ylabel("Value")
-        ax.set_title("Top 10 Books Revenue")
-        ax.legend()
-        fig.tight_layout()
+        # Set plot labels and title
+        plt.xlabel("Book Title")
+        plt.ylabel("Revenue ($)")
+        plt.title("Top 10 Books Revenue")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
 
-        # Display the plot in the GUI
-        canvas = FigureCanvasTkAgg(fig, plot_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
+        # Display the plot in a separate window
+        plt.show()
 
         # Add a close button
         close_button = tk.Button(top_window, text="Close", command=top_window.destroy)
         close_button.pack(pady=10)
 
     show_top_books()
-
 def wrap_text(text, max_length=15):
     return '\n'.join([text[i:i + max_length] for i in range(0, len(text), max_length)])
 
-def on_popularity_book(parent_frame):
+def on_popularity_book(parent_frame=None):
+    # Load and process data
     df = load_data()
     popularity_df = df.copy()
     popularity_df['popularity_score'] = (popularity_df['Rating'] * popularity_df['No_of_People_rated'])
@@ -195,15 +186,16 @@ def on_popularity_book(parent_frame):
     top_n = 20
     top_popular_items = popular_items[['Title', 'popularity_score']].head(top_n)
 
-    # Clear the frame to refresh the content
-    for widget in parent_frame.winfo_children():
-        widget.destroy()
+    # Create a new window
+    top_window = tk.Toplevel()
+    top_window.title("Top Popular Books")
+    top_window.geometry("800x600")
 
     # Add a heading label
-    tk.Label(parent_frame, text="Top Popular Books", font=("Times New Roman", 16, "bold")).pack(pady=10)
+    tk.Label(top_window, text="Top Popular Books", font=("Times New Roman", 16, "bold")).pack(pady=10)
 
     # Create a frame for the table
-    table_frame = tk.Frame(parent_frame)
+    table_frame = tk.Frame(top_window)
     table_frame.pack(fill="both", expand=True)
 
     # Create column headings
@@ -214,6 +206,10 @@ def on_popularity_book(parent_frame):
     for i, (title, score) in enumerate(zip(top_popular_items['Title'], top_popular_items['popularity_score'])):
         tk.Label(table_frame, text=title, font=("Times New Roman", 12), anchor="w").grid(row=i + 1, column=0, padx=10, pady=5, sticky="w")
         tk.Label(table_frame, text=round(score, 2), font=("Times New Roman", 12), anchor="center").grid(row=i + 1, column=1, padx=10, pady=5)
+
+    # Add a close button
+    close_button = tk.Button(top_window, text="Close", command=top_window.destroy)
+    close_button.pack(pady=10)
 
 def content_based_system(title):
     df =load_data()
